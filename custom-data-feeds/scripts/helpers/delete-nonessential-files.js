@@ -1,13 +1,13 @@
 const path = require('path');
 const klaw = require('klaw');
 const deleteAsync = require('del');
-const packages = require('../submodule/package.json').workspaces.map((package) => {
+const packages = require('../../submodule/package.json').workspaces.map((package) => {
   return package.split('/')[1];
 });
 
 async function execute() {  
   console.log('   - deleting non-essential files');
-  const packageDirs = packages.map(package => path.join(__dirname, '..', 'submodule', 'packages', package) )
+  const packageDirs = packages.map(package => path.join(__dirname, '..', '..', 'submodule', 'packages', package) )
 
   for (let i = 0; i < packageDirs.length; i++) {
     await stripTestDir(packageDirs[i])

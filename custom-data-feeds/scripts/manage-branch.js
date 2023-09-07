@@ -5,10 +5,18 @@ const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
-const argv = yargs(hideBin(process.argv)).argv
-const modifyBranch = require('./modify-branch-for-cdf');
+const argv = yargs(hideBin(process.argv)).argv;
+const {
+  modifyPackageFiles,
+  deleteNonEssentialFiles,
+  replaceInternalPackageReferences,
+  replaceCorePackageReferencesInTests
+} = require('./helpers');
 const MAIN_BRANCH = 'master';
-const CDF_BRANCH = 'cdf-modifications'
+const CDF_BRANCH = 'cdf-modifications';
+const submodulePackages = require('../submodule/package.json').workspaces.map((package) => {
+  return package.replace('packages/', '');
+});
 
 const options = {
    baseDir: path.join(__dirname, '..', 'submodule'),
@@ -17,14 +25,13 @@ const options = {
    trimmed: false,
 };
 
-// when setting all options in a single object
 const git = simpleGit(options);
 
 async function execute() {
   const targetBranch = CDF_BRANCH;
   const branchPoint = argv['branch-point'] || MAIN_BRANCH;
 
-  console.log(`\n1. Preparing local submodule branch "${targetBranch}"...`);
+  console.log(`\n1. Preparing local submodule branch "${targetBranch}" from "${branchPoint}"...`);
   await cleanAnyUncommitedChanges();
 
   if(await branchExists(targetBranch)) {
@@ -62,18 +69,25 @@ async function branchExists(targetBranch) {
   return all.includes(targetBranch);
 }
 
-async function deleteExistingLocalBranch (targetBranch) {
+async function deleteExistingLocalBranch(targetBranch) {
   await git.checkout(MAIN_BRANCH)
   return git.deleteLocalBranch(targetBranch)
 }
 
-async function updateMainBranch () {
+async function updateMainBranch() {
   await git.checkout(MAIN_BRANCH)
   await git.reset('hard', [`origin/${MAIN_BRANCH}`])
   await git.pull();
 }
 
-async function runE2ETests () {
+async function modifyBranch() {
+  await modifyPackageFiles(submodulePackages);
+  await deleteNonEssentialFiles(submodulePackages);
+  await replaceInternalPackageReferences(submodulePackages);
+  return replaceCorePackageReferencesInTests(submodulePackages);
+}
+
+async function runE2ETests() {
   await exec('cd submodule && npm install');
   try {
     await exec('cd submodule && npm run test:e2e')
@@ -84,11 +98,16 @@ async function runE2ETests () {
   }
 }
 
-execute()
-  .then((res) => {
-    process.exitCode = 0;
-  })
-  .catch((err) => {
-    console.log(err)
-    process.exitCode = 1;
-  });
+if (require.main === module) {
+  execute()
+    .then(() => {
+      process.exitCode = 0;
+    })
+    .catch((err) => {
+      console.error(err);
+      process.exitCode = 1;
+    });
+} else {
+  // otherwise, the module was required (most likely the unit test), so just export the function
+  module.exports = execute;
+}

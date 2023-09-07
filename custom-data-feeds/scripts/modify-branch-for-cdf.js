@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs-extra');
-const deleteNonEssentialFiles = require('./delete-nonessential-files')
+const deleteNonEssentialFiles = require('./helpers/delete-nonessential-files')
 const findInFiles = require('find-in-files');
 const { modifyJsonFile } = require('modify-json-file');
 const replace = require('replace');
