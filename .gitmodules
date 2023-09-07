@@ -1,0 +1,3 @@
+[submodule "custom-data-feeds/submodule"]
+	path = custom-data-feeds/submodule
+	url = https://github.com/koopjs/koop
