@@ -4,7 +4,7 @@ const { modifyJsonFile } = require('modify-json-file');
 async function modifyPackageFiles(packages) {
   console.log('   - modifying package.json files');
 
-  const packageFilePaths = packages.map(package => path.join(__dirname, '..', '..', 'submodule', 'packages', package, 'package.json') )
+  const packageFilePaths = packages.map(pkg => path.join(__dirname, '..', '..', 'submodule', 'packages', pkg, 'package.json') )
   
   for (let i = 0; i < packageFilePaths.length; i++) {
     const packageFile = require(packageFilePaths[i]);
@@ -34,7 +34,7 @@ async function modifyPackageFiles(packages) {
   }
 }
 
-function stripKoopDeps(dependencies) {
+function stripKoopDeps(dependencies = {}) {
   return Object.entries(dependencies)
     .filter(([key]) => {
       return !/^@koopjs/.test(key);

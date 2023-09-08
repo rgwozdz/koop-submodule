@@ -1,21 +1,23 @@
 const path = require('path');
 const fs = require('fs-extra');
 const { simpleGit } = require('simple-git');
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
-const argv = yargs(hideBin(process.argv)).argv;
 const {
   modifyPackageFiles,
   deleteNonEssentialFiles,
   replaceInternalPackageReferences,
-  replaceCorePackageReferencesInTests
+  replaceCorePackageReferencesInTests,
+  runE2ETests,
+  modifyPackageScripts
 } = require('./helpers');
 const MAIN_BRANCH = 'master';
 const CDF_BRANCH = 'cdf-modifications';
-const submodulePackages = require('../submodule/package.json').workspaces.map((package) => {
-  return package.replace('packages/', '');
+const FRAMEWORK_DESTINTION_1 = path.join(__dirname, '..', '..', 'framework-1');
+const FRAMEWORK_DESTINTION_2 = path.join(__dirname, '..', '..', 'framework-2');
+const FRAMEWORK_1_BUILD_DESTINATION = '../../customdata/framework';
+const submodulePackages = require('../submodule/package.json').workspaces.map((pkg) => {
+  return pkg.replace('packages/', '');
 });
 
 const options = {
@@ -25,9 +27,11 @@ const options = {
    trimmed: false,
 };
 
-const git = simpleGit(options);
+let git;
 
 async function execute() {
+  const argv = yargs(hideBin(process.argv)).argv;
+  git = simpleGit(options);
   const targetBranch = CDF_BRANCH;
   const branchPoint = argv['branch-point'] || MAIN_BRANCH;
 
@@ -54,7 +58,11 @@ async function execute() {
   console.log(`\n   ...Completed`);
 
   console.log(`\n4. Copying modified framework files from submodule to SDK...`);
-  await fs.copy(path.join(__dirname, '..', 'submodule', 'packages'), path.join(__dirname, '..', 'framework'));
+  await copyFramework();
+  console.log(`\n   ...Completed`);
+
+  console.log(`\n5. Adding clean and build script to framework packages in ${FRAMEWORK_DESTINTION_1}...`);
+  await modifyPackageScripts(FRAMEWORK_DESTINTION_1, FRAMEWORK_1_BUILD_DESTINATION);
   console.log(`\n   ...Completed`);
   return;
 }
@@ -87,27 +95,20 @@ async function modifyBranch() {
   return replaceCorePackageReferencesInTests(submodulePackages);
 }
 
-async function runE2ETests() {
-  await exec('cd submodule && npm install');
-  try {
-    await exec('cd submodule && npm run test:e2e')
-  } catch (error) {
-    console.log(`E2E TEST(S) FAILED: Something went wrong with branch modification for CDF.\n`);
-    console.log(error.stderr);
-    throw new Error('\nE2E TEST(S) FAILED: Something went wrong with branch modification for CDF.');
-  }
+async function copyFramework() {
+  await fs.copy(path.join(__dirname, '..', 'submodule', 'packages'), FRAMEWORK_DESTINTION_1);
+  return fs.copy(path.join(__dirname, '..', 'submodule', 'packages'), FRAMEWORK_DESTINTION_2);
 }
 
 if (require.main === module) {
   execute()
-    .then(() => {
-      process.exitCode = 0;
-    })
-    .catch((err) => {
-      console.error(err);
-      process.exitCode = 1;
-    });
+  .then(() => {
+    process.exitCode = 0;
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
 } else {
-  // otherwise, the module was required (most likely the unit test), so just export the function
   module.exports = execute;
 }

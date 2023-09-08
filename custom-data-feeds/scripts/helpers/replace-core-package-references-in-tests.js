@@ -1,5 +1,4 @@
 const path = require('path');
-const fs = require('fs-extra');
 const findInFiles = require('find-in-files');
 const replace = require('replace');
 
